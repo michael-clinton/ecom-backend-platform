@@ -7,12 +7,36 @@ const router = express.Router();
 // 1. View Cart
 const viewCart = async (req, res) => {
     try {
-        const cart = await Cart.findOne({ userId: req.params.userId }).populate('items.productId');
-        console.log('Fetched Cart:', cart);  // Log the cart data
+        // Find the cart based on the userId
+        const cart = await Cart.findOne({ userId: req.params.userId });
 
         if (!cart) {
             return res.status(404).json({ message: 'Cart not found' });
         }
+
+        // Populate product details conditionally
+        const populatedItems = await Promise.all(
+            cart.items.map(async (item) => {
+                // Check the productType to determine whether to fetch from FeaturedProduct or Product
+                let product;
+                if (item.productType === 'Featured') {
+                    product = await FeaturedProduct.findById(item.productId).select('name price image');
+                } else if (item.productType === 'Product') {
+                    product = await Product.findById(item.productId).select('name price image');
+                }
+
+                // Return the populated item with the necessary product details
+                return {
+                    ...item.toObject(),
+                    product: product || {} // Add the populated product details to the cart item
+                };
+            })
+        );
+
+        // Set the populated items back to the cart object
+        cart.items = populatedItems;
+
+        // Return the populated cart data
         res.json(cart);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -58,6 +82,7 @@ const addProductToCart = async (req, res) => {
             // If product does not exist, add a new item
             cart.items.push({
                 productId,
+                productType: 'Product', // Specify the product type as 'Product'
                 quantity,
                 name: product.name,
                 price: product.price,
@@ -88,63 +113,37 @@ const addProductToCartFeatured = async (req, res) => {
     const { productId, quantity } = req.body;
 
     try {
-        console.log("Request Params:", req.params);
-        console.log("Request Body:", req.body);
-
         let cart = await Cart.findOne({ userId: req.params.userId });
-        console.log("Existing Cart:", cart);
 
         if (!cart) {
             cart = new Cart({ userId: req.params.userId, items: [] });
-            console.log("New Cart Created:", cart);
         }
 
-        // Fetch the product details
+        // Fetch the featured product details
         const product = await FeaturedProduct.findById(productId);
-        console.log("Fetched Product:", product);
-
         if (!product) {
-            return res.status(404).json({
-                success: false,
-                message: 'Product not found',
-            });
+            return res.status(404).json({ message: 'Featured product not found' });
         }
 
         // Check if the product already exists in the cart
-        const existingItem = cart.items.find(item => item.productId.toString() === productId);
-        console.log("Existing Item in Cart:", existingItem);
-
+        const existingItem = cart.items.find(item => item.productId.toString() === productId.toString());
         if (existingItem) {
-            // If product exists, update quantity
             existingItem.quantity += quantity;
-            console.log("Updated Quantity:", existingItem.quantity);
         } else {
-            // If product does not exist, add a new item
             cart.items.push({
                 productId,
+                productType: 'Featured', // Specify the product type
                 quantity,
                 name: product.name,
                 price: product.price,
                 image: product.singleImage,
             });
-            console.log("New Item Added:", cart.items);
         }
 
         await cart.save();
-        console.log("Cart Saved:", cart);
-
-        res.status(200).json({
-            success: true,
-            message: 'Product added to cart successfully',
-            cart,
-        });
+        res.status(200).json({ success: true, message: 'Featured product added to cart', cart });
     } catch (err) {
-        console.error("Error Adding Product to Cart:", err);
-        res.status(500).json({
-            success: false,
-            message: 'An error occurred while adding the product to the cart',
-            error: err.message,
-        });
+        res.status(500).json({ message: 'Error adding product to cart', error: err.message });
     }
 };
 

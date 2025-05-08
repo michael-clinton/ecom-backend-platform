@@ -1,7 +1,8 @@
 const mongoose = require('mongoose');
 
 const cartItemSchema = new mongoose.Schema({
-  productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+  productId: { type: mongoose.Schema.Types.ObjectId, refPath: 'productType', required: true },
+  productType: { type: String, enum: ['Product', 'Featured'], required: true }, // Dynamically reference Product or FeaturedProduct
   quantity: { type: Number, default: 1 },
   name: { type: String, required: true },
   price: { type: Number, required: true },

@@ -10,6 +10,9 @@ const productRoutes = require('./routes/productRoutes');
 const cartRouter = require('./routes/cartRoutes'); // Fixed import for cartRouter
 const connectDB = require('./config/db');
 const sessionMiddleware = require('./middleware/sessionMiddleware');
+const razorpayRoutes = require("./routes/razorpayRoutes");
+const orderRoutes = require("./routes/orderRoutes");
+const wishlistRoutes = require("./routes/wishlistRoutes");
 
 // Initialize the app
 const app = express();
@@ -46,7 +49,9 @@ app.use('/api/auth', authRoutes); // Authentication routes
 app.use('/api/products', productRoutes); // Product routes
 app.use('/api/featured', featuredRoutes); // Featured routes
 app.use('/api/cart', cartRouter); // Cart routes
-
+app.use('/api/payment', razorpayRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/wishlist', wishlistRoutes);
 
 // Start the server
 const PORT = process.env.PORT || 5000;

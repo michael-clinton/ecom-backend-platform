@@ -43,14 +43,60 @@ const viewCart = async (req, res) => {
     }
 };
 
+const checkout = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    // Find the user's cart
+    const cart = await Cart.findOne({ userId });
+    if (!cart || cart.items.length === 0) {
+      return res.status(400).json({ success: false, message: "Cart is empty." });
+    }
+
+    // Calculate total amount
+    const amount = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0) * 100; // in paise
+
+    // Create Razorpay order
+    const razorpayOrder = await razorpay.orders.create({
+      amount,
+      currency: "INR",
+      receipt: `receipt_${new Date().getTime()}`,
+    });
+
+    // Create a temporary order entry in the database
+    const order = new Order({
+      userId,
+      items: cart.items,
+      amount,
+      status: "Pending",
+      razorpayOrderId: razorpayOrder.id,
+    });
+
+    await order.save();
+
+    // Return order details and Razorpay order ID
+    res.status(200).json({
+      success: true,
+      message: "Order created successfully.",
+      orderId: razorpayOrder.id,
+      amount,
+    });
+  } catch (err) {
+    console.error("Error during checkout:", err);
+    res.status(500).json({ success: false, message: "Server error. Please try again later." });
+  }
+};
+
+
 // 2. Add Product to Cart
 const addProductToCart = async (req, res) => {
-    const { productId, quantity } = req.body;
+    const { productId, quantity, size } = req.body; // Accept size as part of the request
 
     try {
         console.log("Request Params:", req.params);
         console.log("Request Body:", req.body);
 
+        // Find or create the user's cart
         let cart = await Cart.findOne({ userId: req.params.userId });
         console.log("Existing Cart:", cart);
 
@@ -70,8 +116,11 @@ const addProductToCart = async (req, res) => {
             });
         }
 
-        // Check if the product already exists in the cart
-        const existingItem = cart.items.find(item => item.productId.toString() === productId);
+        // Check if the product with the specified size already exists in the cart
+        const existingItem = cart.items.find(item =>
+            item.productId.toString() === productId &&
+            (!size || item.size === size) // Match size if provided
+        );
         console.log("Existing Item in Cart:", existingItem);
 
         if (existingItem) {
@@ -84,6 +133,7 @@ const addProductToCart = async (req, res) => {
                 productId,
                 productType: 'Product', // Specify the product type as 'Product'
                 quantity,
+                size: size || null, // Store size if provided
                 name: product.name,
                 price: product.price,
                 image: product.singleImage,
@@ -109,8 +159,9 @@ const addProductToCart = async (req, res) => {
     }
 };
 
+// 3. Add Product to Featured Cart
 const addProductToCartFeatured = async (req, res) => {
-    const { productId, quantity } = req.body;
+    const { productId, quantity, size } = req.body;  // added size here
 
     try {
         let cart = await Cart.findOne({ userId: req.params.userId });
@@ -125,8 +176,11 @@ const addProductToCartFeatured = async (req, res) => {
             return res.status(404).json({ message: 'Featured product not found' });
         }
 
-        // Check if the product already exists in the cart
-        const existingItem = cart.items.find(item => item.productId.toString() === productId.toString());
+        // Check if the product with the same size already exists in the cart
+        const existingItem = cart.items.find(item =>
+            item.productId.toString() === productId.toString() && item.size === size
+        );
+
         if (existingItem) {
             existingItem.quantity += quantity;
         } else {
@@ -134,6 +188,7 @@ const addProductToCartFeatured = async (req, res) => {
                 productId,
                 productType: 'Featured', // Specify the product type
                 quantity,
+                size,  // store size here
                 name: product.name,
                 price: product.price,
                 image: product.singleImage,
@@ -147,7 +202,37 @@ const addProductToCartFeatured = async (req, res) => {
     }
 };
 
-// 3. Remove Product from Cart
+// 4. Update Product Size in Cart
+const updateProductSizeInCart = async (req, res) => {
+    const { userId, productId } = req.params;
+    const { size } = req.body;
+
+    try {
+        const cart = await Cart.findOne({ userId });
+
+        if (!cart) {
+            return res.status(404).json({ message: "Cart not found" });
+        }
+
+        const item = cart.items.find(
+            (item) => item.productId.toString() === productId
+        );
+
+        if (!item) {
+            return res.status(404).json({ message: "Product not found in cart" });
+        }
+
+        item.size = size; // Update the size
+        await cart.save();
+
+        res.status(200).json({ success: true, cart });
+    } catch (err) {
+        console.error("Error updating size:", err);
+        res.status(500).json({ message: "Error updating product size in cart" });
+    }
+};
+
+// 5. Remove Product from Cart
 const removeProductFromCart = async (req, res) => {
     try {
         const cart = await Cart.findOne({ userId: req.params.userId });
@@ -166,7 +251,7 @@ const removeProductFromCart = async (req, res) => {
     }
 };
 
-// 4. Update Product Quantity in Cart
+// 6. Update Product Quantity in Cart
 const updateProductQuantityInCart = async (req, res) => {
     const { quantity } = req.body;
 
@@ -194,7 +279,7 @@ const updateProductQuantityInCart = async (req, res) => {
     }
 };
 
-// 5. Clear Cart
+// 7. Clear Cart
 const clearCart = async (req, res) => {
     try {
         const cart = await Cart.findOneAndDelete({ userId: req.params.userId });
@@ -216,5 +301,7 @@ module.exports = {
     removeProductFromCart,
     updateProductQuantityInCart,
     clearCart,
-    addProductToCartFeatured
+    addProductToCartFeatured,
+    updateProductSizeInCart,
+    checkout
 };

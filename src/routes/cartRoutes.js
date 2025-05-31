@@ -1,22 +1,37 @@
-const express = require('express');
+const express = require("express");
+const router = express.Router();
 const {
   viewCart,
   addProductToCart,
   removeProductFromCart,
   updateProductQuantityInCart,
   clearCart,
-  addProductToCartFeatured
-} = require('../controllers/cartController'); // Adjust the path based on your file structure
+  addProductToCartFeatured,
+  updateProductSizeInCart,
+  checkout
+} = require("../controllers/cartController");
 
-const router = express.Router();
+// View the cart for a specific user
+router.get('/:userId', viewCart); 
 
-// Define the routes and attach handlers
-router.get('/:userId', viewCart); // View the cart for a specific user
-router.post('/:userId', addProductToCart); // Add a product to the user's cart
-router.delete('/:userId/:productId', removeProductFromCart); // Remove a product from the cart
-router.put('/:userId/:productId', updateProductQuantityInCart); // Update product quantity in the cart
-router.delete('/:userId', clearCart); // Clear the user's cart
+// Add a product to the user's cart
+router.post('/:userId', addProductToCart); 
+
+// Remove a product from the cart
+router.delete('/:userId/:productId', removeProductFromCart); 
+
+// Update product quantity in the cart
+router.put('/:userId/:productId/quantity', updateProductQuantityInCart);
+
+// Clear the user's cart
+router.delete('/:userId', clearCart);
+
+// Add a product to the user's featured cart
 router.post("/:userId/cart/featured", addProductToCartFeatured);
 
-// Export the router
+// Update the size of a product in the cart
+router.put("/:userId/:productId/size", updateProductSizeInCart);
+
+router.post("/:userId/checkout", checkout);
+
 module.exports = router;

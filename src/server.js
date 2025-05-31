@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 require('dotenv').config();
+const session = require('express-session');
 
 // Import routes and database connection
 const authRoutes = require('./routes/authRoutes');
@@ -13,6 +14,12 @@ const sessionMiddleware = require('./middleware/sessionMiddleware');
 const razorpayRoutes = require("./routes/razorpayRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const wishlistRoutes = require("./routes/wishlistRoutes");
+const testimonialRoutes = require("./routes/testimonialRoutes");
+const offerRoutes = require("./routes/offerRoutes");
+const userRoutes = require("./routes/userRoutes");
+const analyticsRoutes = require("./routes/analyticsRoutes");
+const trackPageView = require('./middleware/trackPageView');
+const logUniqueVisitor = require('./middleware/logUniqueVisitor');
 
 // Initialize the app
 const app = express();
@@ -20,6 +27,8 @@ const app = express();
 // Connect to MongoDB
 connectDB();
 
+
+app.use(trackPageView);
 // Middleware for logging request and response
 app.use((req, res, next) => {
   console.log(`API Called: ${req.method} ${req.originalUrl}`);
@@ -34,15 +43,31 @@ app.use((req, res, next) => {
   next(); // Proceed to the next middleware or route handler
 });
 
+
+
+
 // Middleware setup
 const corsOptions = {
-  origin: 'http://localhost:5173', // Specify the allowed origin
+  origin: ['http://localhost:5173', 'http://localhost:3000', 'http://192.168.0.105:5173/'], // Allow multiple origins
 };
+
 app.use(cors(corsOptions));
 app.use(express.json()); // For parsing JSON requests
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded requests
 app.use(cookieParser()); // Add cookie-parser middleware to parse cookies
 app.use(sessionMiddleware.getSessionId); // Add session middleware
+
+app.use(logUniqueVisitor);
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your_secret_key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: false, // set true if using HTTPS
+    maxAge: 1000 * 60 * 60 * 24, // e.g., 1 day
+  },
+  // optionally setup a session store like MongoStore
+}));
 
 // API Routes
 app.use('/api/auth', authRoutes); // Authentication routes
@@ -52,9 +77,16 @@ app.use('/api/cart', cartRouter); // Cart routes
 app.use('/api/payment', razorpayRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/wishlist', wishlistRoutes);
+app.use('/api/testimonials', testimonialRoutes);
+app.use('/api/offers', offerRoutes);
+app.use('/api/users', userRoutes);
+
+app.use(trackPageView);
+app.use('/api/analytics', trackPageView, analyticsRoutes);
 
 // Start the server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server is running on http://0.0.0.0:${PORT}`);
 });

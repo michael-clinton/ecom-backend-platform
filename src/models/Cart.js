@@ -7,6 +7,7 @@ const cartItemSchema = new mongoose.Schema({
   name: { type: String, required: true },
   price: { type: Number, required: true },
   image: { type: String, required: true },
+  size: { type: String, enum: ['S', 'M', 'L', 'XL'], default: '' }, // Added size field
 });
 
 const cartSchema = new mongoose.Schema({

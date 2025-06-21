@@ -48,7 +48,7 @@ app.use((req, res, next) => {
 
 // Middleware setup
 const corsOptions = {
-  origin: ['http://localhost:5173', 'http://localhost:3000', 'http://192.168.0.105:5173/'], // Allow multiple origins
+  origin: ['http://localhost:5173', 'http://localhost:3000', 'https://ecom-frontend-platform.vercel.app'], // Allow multiple origins
 };
 
 app.use(cors(corsOptions));

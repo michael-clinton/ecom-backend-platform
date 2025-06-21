@@ -43,15 +43,12 @@ app.use((req, res, next) => {
   next(); // Proceed to the next middleware or route handler
 });
 
+app.use(cors({
+  origin: "https://ecom-frontend-platform.vercel.app", // allow only this origin
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true, // if using cookies/auth headers
+}));
 
-
-
-// Middleware setup
-const corsOptions = {
-  origin: ['http://localhost:5173', 'http://localhost:3000', 'https://ecom-frontend-platform.vercel.app'], // Allow multiple origins
-};
-
-app.use(cors(corsOptions));
 app.use(express.json()); // For parsing JSON requests
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded requests
 app.use(cookieParser()); // Add cookie-parser middleware to parse cookies
